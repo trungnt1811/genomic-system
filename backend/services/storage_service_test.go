@@ -67,10 +67,7 @@ func TestVerifyGeneDataSignature(t *testing.T) {
 	// Generate new key pair
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	require.True(t, ok)
-	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
+	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
 
 	// Create and store test gene data
 	userID := uint64(1)

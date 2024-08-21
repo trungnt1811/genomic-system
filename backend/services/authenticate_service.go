@@ -2,7 +2,6 @@ package services
 
 import (
 	"encoding/hex"
-	"errors"
 	"math/rand"
 	"sync"
 
@@ -39,12 +38,12 @@ func (s *AuthService) RegisterUser() (string, uint64, error) {
 	userID := rand.Uint64()
 
 	// Convert the public key to a byte slice
-	publicKey := crypto.FromECDSAPub(&privateKey.PublicKey)
+	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
 
 	s.mu.Lock()
 	s.usersDB[userID] = User{
 		UserID:    userID,
-		PublicKey: publicKey,
+		PublicKey: publicKeyBytes,
 	}
 	s.mu.Unlock()
 
@@ -55,13 +54,7 @@ func (s *AuthService) RegisterUser() (string, uint64, error) {
 }
 
 // AddExistingUser adds an existing user to the service with a provided public key in hex format.
-func (s *AuthService) AddExistingUser(userID uint64, publicKeyHex string) error {
-	// Decode the hex string into a byte slice
-	publicKeyBytes, err := hex.DecodeString(publicKeyHex)
-	if err != nil {
-		return errors.New("failed to decode public key")
-	}
-
+func (s *AuthService) AddExistingUser(userID uint64, publicKeyBytes []byte) error {
 	s.mu.Lock()
 	s.usersDB[userID] = User{
 		UserID:    userID,
@@ -96,4 +89,10 @@ func (s *AuthService) Authenticate(userID uint64, ethAddress string) bool {
 	publicKeyAddress := crypto.PubkeyToAddress(*publicKey).Hex()
 
 	return publicKeyAddress == ethAddress
+}
+
+func (s *AuthService) GetUserInfo(userID uint64) User {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.usersDB[userID]
 }
