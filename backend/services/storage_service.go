@@ -18,7 +18,7 @@ type GeneData struct {
 	EncryptedData []byte // The encrypted gene data.
 }
 
-// GeneDataStorageService manages the storage of encrypted gene data that uses an in-memory map to simulate a NoSQL database.
+// GeneDataStorageService manages the storage of encrypted gene data using an in-memory map to simulate a NoSQL database.
 type GeneDataStorageService struct {
 	dataStore map[string]GeneData
 	mu        sync.Mutex
@@ -33,11 +33,16 @@ func NewGeneDataStorageService() *GeneDataStorageService {
 
 // StoreGeneData stores the encrypted gene data, its hash, and the associated signature.
 func (s *GeneDataStorageService) StoreGeneData(userID uint64, encryptedData []byte, signatureBytes []byte) (string, error) {
+	// Check the signature length
+	if len(signatureBytes) != crypto.SignatureLength {
+		return "", errors.New("invalid signature length")
+	}
+
 	// Calculate the SHA-256 hash of the encrypted data.
 	dataHash := sha256.Sum256(encryptedData)
 
 	// Use part of the hash as a unique file identifier.
-	fileID := hex.EncodeToString(dataHash[:6])
+	fileID := hex.EncodeToString(dataHash[:16])
 
 	// Store the gene data in the in-memory map.
 	s.mu.Lock()
@@ -87,7 +92,11 @@ func (s *GeneDataStorageService) VerifyGeneDataSignature(fileID string, publicKe
 	}
 
 	// Verify the signature using the hash of the encrypted data and the public key.
-	isValid := crypto.VerifySignature(crypto.CompressPubkey(publicKey), data.DataHash, data.Signature[:len(data.Signature)-1])
-
+	// Note: crypto.VerifySignature expects the signature to be 64 bytes (without the recovery ID).
+	isValid := crypto.VerifySignature(
+		crypto.CompressPubkey(publicKey),
+		data.DataHash,
+		data.Signature[:len(data.Signature)-1], // Exclude the recovery ID
+	)
 	return isValid, nil
 }
