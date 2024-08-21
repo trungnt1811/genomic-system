@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/hex"
+	"errors"
 	"math/rand"
 	"sync"
 
@@ -91,7 +92,29 @@ func (s *AuthService) Authenticate(userID uint64, ethAddress string) bool {
 	return publicKeyAddress == ethAddress
 }
 
-func (s *AuthService) GetUserInfo(userID uint64) User {
+// GetUserInfo returns the user ID and the Ethereum address for the given user ID.
+func (s *AuthService) GetUserInfo(userID uint64) (uint64, string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	user, exists := s.usersDB[userID]
+	if !exists {
+		return 0, "", errors.New("user not found")
+	}
+
+	// Convert the stored public key bytes back to an ecdsa.PublicKey
+	publicKey, err := crypto.UnmarshalPubkey(user.PublicKey)
+	if err != nil {
+		return 0, "", err
+	}
+
+	// Convert the public key to an Ethereum address
+	ethAddress := crypto.PubkeyToAddress(*publicKey).Hex()
+
+	return user.UserID, ethAddress, nil
+}
+
+func (s *AuthService) QueryUserByUserID(userID uint64) User {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.usersDB[userID]

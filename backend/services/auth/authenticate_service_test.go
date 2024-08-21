@@ -29,7 +29,7 @@ func TestRegisterUser(t *testing.T) {
 	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
 
 	// Check if the user is correctly stored in the AuthService
-	storedUser := authService.GetUserInfo(userID)
+	storedUser := authService.QueryUserByUserID(userID)
 	require.Equal(t, userID, storedUser.UserID)
 	require.Equal(t, publicKeyBytes, storedUser.PublicKey)
 }
@@ -48,7 +48,7 @@ func TestAddExistingUser(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check if the user is correctly stored in the AuthService
-	storedUser := authService.GetUserInfo(userID)
+	storedUser := authService.QueryUserByUserID(userID)
 	require.Equal(t, userID, storedUser.UserID)
 	require.Equal(t, publicKeyBytes, storedUser.PublicKey)
 }
@@ -81,4 +81,32 @@ func TestAuthenticate(t *testing.T) {
 	// Test failed authentication with non-existent user ID
 	isAuthenticated = authService.Authenticate(999, ethAddress)
 	require.False(t, isAuthenticated)
+}
+
+func TestGetUserInfo(t *testing.T) {
+	authService := service.NewAuthService()
+
+	// Register a new user
+	privateKeyHex, userID, err := authService.RegisterUser()
+	require.NoError(t, err)
+	require.NotEmpty(t, privateKeyHex)
+	require.NotZero(t, userID)
+
+	// Retrieve user info
+	retrievedUserID, ethAddress, err := authService.GetUserInfo(userID)
+	require.NoError(t, err)
+	require.Equal(t, userID, retrievedUserID)
+	require.NotEmpty(t, ethAddress)
+
+	// Verify that the Ethereum address matches the public key derived from the private key
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	require.NoError(t, err)
+
+	expectedEthAddress := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+	require.Equal(t, expectedEthAddress, ethAddress)
+
+	// Test case where the user does not exist
+	_, _, err = authService.GetUserInfo(999999)
+	require.Error(t, err)
+	require.Equal(t, "user not found", err.Error())
 }
