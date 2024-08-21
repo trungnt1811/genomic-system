@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -146,8 +149,8 @@ func main() {
 	}
 	fmt.Println("Encrypted gene data retrieved successfully.")
 
-	// Step 14: Decrypt the gene data using the user's private key via the TEE service
-	decryptedGeneData, err := teeService.DecryptGeneData(ecdsaPrivateKey, retrievedEncryptedData)
+	// Step 14: Decrypt the gene data using the user's private key
+	decryptedGeneData, err := decryptGeneData(ecdsaPrivateKey, retrievedEncryptedData)
 	if err != nil {
 		fmt.Println("Error decrypting gene data:", err)
 		return
@@ -183,4 +186,36 @@ func hexToECDSAPrivateKey(privateKeyHex string) (*ecdsa.PrivateKey, error) {
 	}
 
 	return privateKey, nil
+}
+
+// decryptGeneData decrypts the encrypted gene data using the user's private key.
+func decryptGeneData(privateKey *ecdsa.PrivateKey, encryptedData []byte) (string, error) {
+	// Extract the nonce and ciphertext
+	nonceSize := 12 // GCM standard nonce size
+	if len(encryptedData) < nonceSize {
+		return "", errors.New("invalid encrypted data")
+	}
+	nonce, ciphertext := encryptedData[:nonceSize], encryptedData[nonceSize:]
+
+	// Generate the shared secret
+	xBytes := privateKey.PublicKey.X.Bytes()
+	sharedSecret := sha256.Sum256(xBytes)
+
+	// Decrypt using AES-256-GCM
+	block, err := aes.NewCipher(sharedSecret[:])
+	if err != nil {
+		return "", err
+	}
+
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+
+	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(plaintext), nil
 }
