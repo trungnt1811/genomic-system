@@ -14,13 +14,13 @@ import (
 )
 
 func main() {
-	// Initialize services
+	// Initialize necessary services for the application
 	authService := auth.NewAuthService()
 	geneDataStorageService := storage.NewGeneDataStorageService()
 	teeService := tee.NewTEEService()
 	blockchainService := blockchain.NewBlockchainMockService()
 
-	// Step 1: Register a new user
+	// Step 1: Register a new user and generate an Ethereum key pair
 	fmt.Println("Registering a new user...")
 	userPrivateKeyHex, userID, err := authService.RegisterUser()
 	if err != nil {
@@ -28,7 +28,7 @@ func main() {
 		return
 	}
 
-	// Convert the user's private key from hex string to ECDSA private key format
+	// Convert the user's private key from hex string to ECDSA private key format for cryptographic operations
 	ecdsaPrivateKey, err := hexToECDSAPrivateKey(userPrivateKeyHex)
 	if err != nil {
 		fmt.Println("Error converting private key hex to ECDSA:", err)
@@ -42,7 +42,7 @@ func main() {
 		return
 	}
 
-	// Convert the public key bytes to an Ethereum address
+	// Convert the public key bytes to an Ethereum address for identification
 	userETHAddress, err := pubkeyToETHAddress(userPubkeyBytes)
 	if err != nil {
 		fmt.Println("Error converting public key to Ethereum address:", err)
@@ -51,7 +51,7 @@ func main() {
 	fmt.Printf("User registered with UserID: %d, PrivateKey: %s, and Ethereum address: %s\n", userID, userPrivateKeyHex, userETHAddress)
 	// Note: The private key is typically stored securely by the user; the service only retains the public key.
 
-	// Step 2: Authenticate the user using their Ethereum address
+	// Step 2: Authenticate the user using their Ethereum address derived from the public key
 	isAuthenticated := authService.Authenticate(userID, userETHAddress)
 	if !isAuthenticated {
 		fmt.Println("User authentication failed!")
@@ -60,7 +60,8 @@ func main() {
 	fmt.Println("User authenticated successfully with Ethereum address:", userETHAddress)
 
 	// Step 3: Encrypt gene data using the user's public key via the TEE service
-	geneData := "AGTCAGTCAGTC..." // Example gene data
+	geneData := "AGTCAGTCAGTC..." // Example gene data to be encrypted
+	fmt.Printf("Original gene data: %s\n", geneData)
 	fmt.Println("Encrypting gene data...")
 	encryptedData, err := teeService.EncryptGeneData(userPubkeyBytes, geneData)
 	if err != nil {
@@ -87,7 +88,7 @@ func main() {
 	}
 	fmt.Printf("Gene data stored successfully with FileID: %s\n", fileID)
 
-	// Step 6: Verify the gene data signature
+	// Step 6: Verify the gene data signature to ensure its integrity
 	fmt.Println("Verifying gene data signature...")
 	isSignatureValid, err := geneDataStorageService.VerifyGeneDataSignature(fileID, userPubkeyBytes)
 	if err != nil {
@@ -100,25 +101,58 @@ func main() {
 		fmt.Println("Gene data signature is invalid.")
 	}
 
-	// Step 7: Calculate the risk score using the TEE service
+	// Step 7: Calculate the risk score based on the gene data using the TEE service
 	fmt.Println("Calculating risk score...")
 	riskScore := teeService.CalculateRiskScore(geneData)
 	fmt.Printf("Risk score calculated: %d\n", riskScore)
 
-	// Step 8: Upload the gene data to the blockchain
+	// Step 8: Upload the gene data to the blockchain for secure storage
 	fmt.Println("Uploading gene data to blockchain...")
 	sessionID := blockchainService.UploadData(fileID, userETHAddress)
 	fmt.Printf("Gene data uploaded with SessionID: %d\n", sessionID)
 
-	// Step 9: Confirm the transaction, mint NFT, and reward PCSP tokens
+	// Step 9: Confirm the blockchain transaction, mint an NFT, and reward PCSP tokens
 	fmt.Println("Confirming transaction on blockchain...")
 	blockchainService.Confirm(sessionID, fmt.Sprintf("%x", hash), fmt.Sprintf("%x", signature), uint64(riskScore))
 	fmt.Println("Transaction confirmed, NFT minted, and PCSP tokens rewarded.")
 
-	// Step 10: Retrieve the user's NFT and PCSP balance
+	// Step 10: Retrieve the user's NFT and PCSP balance from the blockchain
 	userNFT := blockchainService.GetUserNFT(userETHAddress)
 	userPCSPBalance := blockchainService.GetUserPCSPBalance(userETHAddress)
 	fmt.Printf("User's NFT TokenID: %d, PCSP Balance: %d\n", userNFT, userPCSPBalance)
+
+	// Step 11: Retrieve and decrypt the original gene data using the user's private key
+	fmt.Println("Retrieving and decrypting original gene data...")
+
+	// Step 12: Verify the gene data signature again before decryption
+	fmt.Println("Verifying gene data signature...")
+	isSignatureValid, err = geneDataStorageService.VerifyGeneDataSignature(fileID, userPubkeyBytes)
+	if err != nil {
+		fmt.Println("Error verifying signature:", err)
+		return
+	}
+	if isSignatureValid {
+		fmt.Println("Gene data signature is valid.")
+	} else {
+		fmt.Println("Gene data signature is invalid.")
+		return
+	}
+
+	// Step 13: Retrieve the encrypted gene data from storage using the fileID
+	retrievedEncryptedData, err := geneDataStorageService.RetrieveGeneData(fileID)
+	if err != nil {
+		fmt.Println("Error retrieving gene data:", err)
+		return
+	}
+	fmt.Println("Encrypted gene data retrieved successfully.")
+
+	// Step 14: Decrypt the gene data using the user's private key via the TEE service
+	decryptedGeneData, err := teeService.DecryptGeneData(ecdsaPrivateKey, retrievedEncryptedData)
+	if err != nil {
+		fmt.Println("Error decrypting gene data:", err)
+		return
+	}
+	fmt.Printf("Original gene data retrieved and decrypted successfully: %s\n", decryptedGeneData)
 }
 
 // pubkeyToETHAddress converts a public key byte slice to an Ethereum address.
