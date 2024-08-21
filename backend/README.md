@@ -1,6 +1,6 @@
 # Genomic End-User Flow Simulation
 
-This will execute the end-user flow as defined in the cmd/main.go file, demonstrating the interaction between various services in a simulated Genimoc application.
+This will execute the end-user flow as defined in the cmd/main.go file, demonstrating the interaction between various services in a simulated Genomic application.
 
 ## Flow Overview
 
