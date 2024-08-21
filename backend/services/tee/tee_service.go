@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"io"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -18,6 +19,18 @@ type TEEService struct{}
 // NewTEEService creates a new instance of TEEService.
 func NewTEEService() *TEEService {
 	return &TEEService{}
+}
+
+// CalculateRiskScore calculates a risk score based on the provided gene data.
+// The score is a simple mock and will return 1, 2, 3, or 4 based on the hash of the gene data.
+func (s *TEEService) CalculateRiskScore(geneData string) uint {
+	hash := sha256.Sum256([]byte(geneData))
+
+	hashInt := new(big.Int).SetBytes(hash[:])
+
+	riskScore := new(big.Int).Mod(hashInt, big.NewInt(4)).Uint64() + 1
+
+	return uint(riskScore)
 }
 
 // EncryptGeneData encrypts the gene data using the user's public key.
