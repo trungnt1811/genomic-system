@@ -37,17 +37,17 @@ func (s *GeneDataStorageService) StoreGeneData(
 	signatureBytes []byte,
 	hashBytes []byte,
 ) (string, error) {
-	// Check the signature length (should be 65 bytes, including the recovery ID).
+	// Check the signature length (should be 65 bytes, including the recovery ID)
 	if len(signatureBytes) != crypto.SignatureLength {
 		return "", errors.New("invalid signature length")
 	}
 
 	dataHash := hashBytes
 
-	// Use part of the hash as a unique file identifier.
+	// Use part of the hash as a unique file identifier
 	fileID := hex.EncodeToString(dataHash[:16])
 
-	// Store the gene data in the in-memory map.
+	// Store the gene data in the in-memory map
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -89,11 +89,11 @@ func (s *GeneDataStorageService) VerifyGeneDataSignature(fileID string, publicKe
 		return false, errors.New("gene data not found")
 	}
 
-	// Extract the signature without the recovery ID.
+	// Extract the signature without the recovery ID
 	signatureNoRecoverID := data.Signature[:len(data.Signature)-1]
 
-	// Verify the signature using the public key and the data hash.
-	// Note: crypto.VerifySignature expects the signature to be 64 bytes (without the recovery ID).
+	// Verify the signature using the public key and the data hash
+	// Note: crypto.VerifySignature expects the signature to be 64 bytes (without the recovery ID)
 	isValid := crypto.VerifySignature(publicKeyBytes, data.DataHash, signatureNoRecoverID)
 	return isValid, nil
 }
