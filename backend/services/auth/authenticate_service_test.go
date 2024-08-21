@@ -1,4 +1,4 @@
-package services_test
+package auth_test
 
 import (
 	"encoding/hex"
@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trungnt1811/blockchain-engineer-interview/backend/services"
+	service "github.com/trungnt1811/blockchain-engineer-interview/backend/services/auth"
 )
 
 func TestRegisterUser(t *testing.T) {
-	authService := services.NewAuthService()
+	authService := service.NewAuthService()
 
 	// Register a new user
 	privateKeyHex, userID, err := authService.RegisterUser()
@@ -35,7 +35,7 @@ func TestRegisterUser(t *testing.T) {
 }
 
 func TestAddExistingUser(t *testing.T) {
-	authService := services.NewAuthService()
+	authService := service.NewAuthService()
 
 	// Generate a new key pair for the user
 	privateKey, err := crypto.GenerateKey()
@@ -54,7 +54,7 @@ func TestAddExistingUser(t *testing.T) {
 }
 
 func TestAuthenticate(t *testing.T) {
-	authService := services.NewAuthService()
+	authService := service.NewAuthService()
 
 	// Register a new user
 	privateKeyHex, userID, err := authService.RegisterUser()

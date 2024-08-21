@@ -1,4 +1,4 @@
-package services_test
+package storage_test
 
 import (
 	"crypto/ecdsa"
@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trungnt1811/blockchain-engineer-interview/backend/services"
+	service "github.com/trungnt1811/blockchain-engineer-interview/backend/services/storage"
 )
 
 func TestStoreGeneData(t *testing.T) {
-	service := services.NewGeneDataStorageService()
+	service := service.NewGeneDataStorageService()
 
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestStoreGeneData(t *testing.T) {
 }
 
 func TestRetrieveGeneData(t *testing.T) {
-	service := services.NewGeneDataStorageService()
+	service := service.NewGeneDataStorageService()
 
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestRetrieveGeneData(t *testing.T) {
 }
 
 func TestVerifyGeneDataSignature(t *testing.T) {
-	service := services.NewGeneDataStorageService()
+	service := service.NewGeneDataStorageService()
 
 	// Generate new key pair
 	privateKey, err := crypto.GenerateKey()
