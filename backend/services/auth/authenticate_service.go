@@ -92,26 +92,17 @@ func (s *AuthService) Authenticate(userID uint64, ethAddress string) bool {
 	return publicKeyAddress == ethAddress
 }
 
-// GetUserInfo returns the user ID and the Ethereum address for the given user ID.
-func (s *AuthService) GetUserInfo(userID uint64) (uint64, string, error) {
+// GetUserPubkey returns the user public key bytes for the given user ID.
+func (s *AuthService) GetUserPubkey(userID uint64) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	user, exists := s.usersDB[userID]
 	if !exists {
-		return 0, "", errors.New("user not found")
+		return nil, errors.New("user not found")
 	}
 
-	// Convert the stored public key bytes back to an ecdsa.PublicKey
-	publicKey, err := crypto.UnmarshalPubkey(user.PublicKey)
-	if err != nil {
-		return 0, "", err
-	}
-
-	// Convert the public key to an Ethereum address
-	ethAddress := crypto.PubkeyToAddress(*publicKey).Hex()
-
-	return user.UserID, ethAddress, nil
+	return user.PublicKey, nil
 }
 
 func (s *AuthService) QueryUserByUserID(userID uint64) User {
