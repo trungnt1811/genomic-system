@@ -1,7 +1,6 @@
 package services
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"sync"
@@ -32,14 +31,18 @@ func NewGeneDataStorageService() *GeneDataStorageService {
 }
 
 // StoreGeneData stores the encrypted gene data, its hash, and the associated signature.
-func (s *GeneDataStorageService) StoreGeneData(userID uint64, encryptedData []byte, signatureBytes []byte) (string, error) {
-	// Check the signature length
+func (s *GeneDataStorageService) StoreGeneData(
+	userID uint64,
+	encryptedData []byte,
+	signatureBytes []byte,
+	hashBytes []byte,
+) (string, error) {
+	// Check the signature length (should be 65 bytes, including the recovery ID).
 	if len(signatureBytes) != crypto.SignatureLength {
 		return "", errors.New("invalid signature length")
 	}
 
-	// Calculate the SHA-256 hash of the encrypted data.
-	dataHash := sha256.Sum256(encryptedData)
+	dataHash := hashBytes
 
 	// Use part of the hash as a unique file identifier.
 	fileID := hex.EncodeToString(dataHash[:16])
@@ -86,17 +89,11 @@ func (s *GeneDataStorageService) VerifyGeneDataSignature(fileID string, publicKe
 		return false, errors.New("gene data not found")
 	}
 
-	publicKey, err := crypto.UnmarshalPubkey(publicKeyBytes)
-	if err != nil {
-		return false, errors.New("invalid public key")
-	}
+	// Extract the signature without the recovery ID.
+	signatureNoRecoverID := data.Signature[:len(data.Signature)-1]
 
-	// Verify the signature using the hash of the encrypted data and the public key.
+	// Verify the signature using the public key and the data hash.
 	// Note: crypto.VerifySignature expects the signature to be 64 bytes (without the recovery ID).
-	isValid := crypto.VerifySignature(
-		crypto.CompressPubkey(publicKey),
-		data.DataHash,
-		data.Signature[:len(data.Signature)-1], // Exclude the recovery ID
-	)
+	isValid := crypto.VerifySignature(publicKeyBytes, data.DataHash, signatureNoRecoverID)
 	return isValid, nil
 }
