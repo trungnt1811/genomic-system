@@ -4,7 +4,7 @@ This will execute the end-user flow as defined in the cmd/main.go file, demonstr
 
 ## Flow Overview
 
-1. User Registration: A new user is registered, generating an Ethereum key pair.
+1. User Registration: A new user is registered.
 2. User Authentication: The user is authenticated using their Ethereum address.
 3. Gene Data Encryption: The user's public key encrypts gene data using the Trusted Execution Environment (TEE) service.
 4. Gene Data Signing: The user's private key signs the encrypted gene data using the Trusted Execution Environment (TEE) service.
