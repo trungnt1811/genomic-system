@@ -55,16 +55,18 @@ func (s *ControllerEventListener) ListenForUploadDataEvents(fileID string) (*big
 	latestBlock := header.Number
 
 	// Ensure the block range is valid
-	startBlock := new(big.Int).Sub(latestBlock, big.NewInt(5))
-	if startBlock.Sign() < 0 {
-		startBlock = big.NewInt(0)
+	fromBlock := new(big.Int).Sub(latestBlock, big.NewInt(10))
+	if fromBlock.Sign() < 0 {
+		fromBlock = big.NewInt(0)
 	}
+	toBlock := new(big.Int).Add(latestBlock, big.NewInt(10))
 
 	// Create a filter query for the contract address and UploadData event
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{common.HexToAddress(controllerAddress)},
 		Topics:    [][]common.Hash{{s.eventABI.Events["UploadData"].ID}},
-		FromBlock: startBlock,
+		FromBlock: fromBlock,
+		ToBlock:   toBlock,
 	}
 
 	// Poll for logs
@@ -84,7 +86,7 @@ func (s *ControllerEventListener) ListenForUploadDataEvents(fileID string) (*big
 		// Unpack the non-indexed parameters
 		err := s.eventABI.UnpackIntoInterface(&event, "UploadData", vLog.Data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unpack event data: %w", err)
+			continue
 		}
 
 		// Compare the docId with the provided fileID
