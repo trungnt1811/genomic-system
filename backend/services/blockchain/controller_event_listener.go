@@ -2,16 +2,27 @@ package blockchain
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
-	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+)
+
+const (
+	uploadDataEventABI = `[{
+		"anonymous":false,
+		"inputs":[
+			{"indexed":false,"internalType": "string","name":"docId","type":"string"},
+			{"indexed":false,"internalType": "uint256","name":"sessionId","type":"uint256"}
+		],
+		"name":"UploadData",
+		"type":"event"
+	}]`
 )
 
 type ControllerEventListener struct {
@@ -22,16 +33,10 @@ type ControllerEventListener struct {
 
 // NewControllerEventListener initializes the ControllerEventListener by loading the ABI from the specified file.
 func NewControllerEventListener(client *ethclient.Client, auth *bind.TransactOpts) (*ControllerEventListener, error) {
-	// Read the ABI file
-	abiBytes, err := os.ReadFile("./services/blockchain/Controller.abi.json")
+	/// Parse the ABI for the UploadData event
+	eventABI, err := abi.JSON(strings.NewReader(uploadDataEventABI))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read ABI file: %w", err)
-	}
-
-	// Parse the ABI
-	var eventABI abi.ABI
-	if err := json.Unmarshal(abiBytes, &eventABI); err != nil {
-		return nil, fmt.Errorf("failed to parse ABI JSON: %w", err)
+		return nil, fmt.Errorf("failed to parse ABI: %w", err)
 	}
 
 	return &ControllerEventListener{
