@@ -80,6 +80,7 @@ func (s *ControllerEventListener) ListenForUploadDataEvents(fileID string) (*big
 		// Unpack the non-indexed parameters
 		err := s.eventABI.UnpackIntoInterface(&event, "UploadData", vLog.Data)
 		if err != nil {
+			fmt.Printf("Error unpacking event data: %v\n", err)
 			continue
 		}
 
