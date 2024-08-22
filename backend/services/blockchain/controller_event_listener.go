@@ -14,7 +14,15 @@ import (
 )
 
 const (
-	uploadDataEventABI = `[{"anonymous":false,"inputs":[{"indexed":false,"name":"docId","type":"string"},{"indexed":false,"name":"sessionId","type":"uint256"}],"name":"UploadData","type":"event"}]`
+	uploadDataEventABI = `[{
+		"anonymous":false,
+		"inputs":[
+			{"indexed":false,"internalType": "string","name":"docId","type":"string"},
+			{"indexed":false,"internalType": "uint256","name":"sessionId","type":"uint256"}
+		],
+		"name":"UploadData",
+		"type":"event"
+	}]`
 )
 
 type ControllerEventListener struct {
@@ -56,7 +64,7 @@ func (s *ControllerEventListener) ListenForUploadDataEvents(fileID string) (*big
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{common.HexToAddress(controllerAddress)},
 		Topics:    [][]common.Hash{{s.eventABI.Events["UploadData"].ID}},
-		FromBlock: startBlock, // Start from the latest block - 5
+		FromBlock: startBlock,
 	}
 
 	// Poll for logs
@@ -73,6 +81,7 @@ func (s *ControllerEventListener) ListenForUploadDataEvents(fileID string) (*big
 			SessionID *big.Int
 		}{}
 
+		// Unpack the non-indexed parameters
 		err := s.eventABI.UnpackIntoInterface(&event, "UploadData", vLog.Data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unpack event data: %w", err)
