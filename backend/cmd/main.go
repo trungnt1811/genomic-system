@@ -8,8 +8,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/joho/godotenv"
+
 	"github.com/trungnt1811/blockchain-engineer-interview/backend/services/auth"
 	"github.com/trungnt1811/blockchain-engineer-interview/backend/services/blockchain"
 	"github.com/trungnt1811/blockchain-engineer-interview/backend/services/storage"
@@ -17,19 +20,27 @@ import (
 )
 
 func main() {
-	// Initialize necessary services for the application
-	authService := auth.NewAuthService()
-	geneDataStorageService := storage.NewGeneDataStorageService()
-	teeService := tee.NewTEEService()
-	blockchainService := blockchain.NewBlockchainMockService()
+	// Load environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file:", err)
+		return
+	}
 
 	// Get user private key from .env
-	userPrivateKeyHex := "" //TODO: implement later
+	userPrivateKeyHex := os.Getenv("PRIVATE_KEY")
+	if userPrivateKeyHex == "" {
+		fmt.Println("PRIVATE_KEY not found in .env file")
+		return
+	}
+
+	// Convert the private key hex string to an ECDSA private key
 	ecdsaPrivateKey, err := hexToECDSAPrivateKey(userPrivateKeyHex)
 	if err != nil {
 		fmt.Println("Error converting private key hex to ECDSA:", err)
 		return
 	}
+
 	// Generate user pubkey from private key
 	userPubkeyBytes := crypto.FromECDSAPub(&ecdsaPrivateKey.PublicKey)
 
@@ -40,10 +51,16 @@ func main() {
 		return
 	}
 
+	// Initialize necessary services for the application
+	authService := auth.NewAuthService()
+	geneDataStorageService := storage.NewGeneDataStorageService()
+	teeService := tee.NewTEEService()
+	blockchainService := blockchain.NewBlockchainMockService()
+
 	// Step 1: Register a new user with public key
 	fmt.Println("Registering a new user...")
 	userID := authService.RegisterUserWithPubkey(userPubkeyBytes)
-	fmt.Printf("User registered with UserID: %d, PrivateKey: %s, and Ethereum address: %s\n", userID, userPrivateKeyHex, userETHAddress)
+	fmt.Printf("User registered with UserID: %d and Ethereum address: %s\n", userID, userETHAddress)
 	// Note: The private key is typically stored securely by the user; the service only retains the public key.
 
 	// Step 2: Authenticate the user using their Ethereum address derived from the public key
