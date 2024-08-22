@@ -105,11 +105,13 @@ func main() {
 	}
 
 	// Step 1: Register a new user with public key
+	fmt.Println("\nStep 1")
 	fmt.Println("Registering a new user...")
 	userID := authService.RegisterUserWithPubkey(userPubkeyBytes)
 	fmt.Printf("User registered with UserID: %d and Ethereum address: %s\n", userID, userETHAddress)
 
 	// Step 2: Authenticate the user using their Ethereum address derived from the public key
+	fmt.Println("\nStep 2")
 	isAuthenticated := authService.Authenticate(userID, userETHAddress)
 	if !isAuthenticated {
 		fmt.Println("User authentication failed!")
@@ -118,6 +120,7 @@ func main() {
 	fmt.Println("User authenticated successfully with Ethereum address:", userETHAddress)
 
 	// Step 3: Encrypt gene data using the user's public key via the TEE service
+	fmt.Println("\nStep 3")
 	geneData, err := randomStringWithRandomLength(10, 50) // Example gene data to be encrypted
 	if err != nil {
 		fmt.Println("Error creating random gene data:", err)
@@ -133,6 +136,7 @@ func main() {
 	fmt.Println("Gene data encrypted successfully.")
 
 	// Step 4: Sign the encrypted gene data using the user's private key via the TEE service
+	fmt.Println("\nStep 4")
 	fmt.Println("Signing encrypted gene data...")
 	hash, signature, err := teeService.SignEncryptedGeneData(ecdsaPrivateKey, encryptedData)
 	if err != nil {
@@ -142,6 +146,7 @@ func main() {
 	fmt.Println("Gene data signed successfully.")
 
 	// Step 5: Store the encrypted gene data, signature, and hash in the storage service
+	fmt.Println("\nStep 5")
 	fmt.Println("Storing encrypted gene data...")
 	fileID, err := geneDataStorageService.StoreGeneData(userID, encryptedData, signature, hash)
 	if err != nil {
@@ -151,6 +156,7 @@ func main() {
 	fmt.Printf("Gene data stored successfully with FileID: %s\n", fileID)
 
 	// Step 6: Verify the gene data signature to ensure its integrity
+	fmt.Println("\nStep 6")
 	fmt.Println("Verifying gene data signature...")
 	isSignatureValid, err := geneDataStorageService.VerifyGeneDataSignature(fileID, userPubkeyBytes)
 	if err != nil {
@@ -164,11 +170,13 @@ func main() {
 	}
 
 	// Step 7: Calculate the risk score based on the gene data using the TEE service
+	fmt.Println("\nStep 7")
 	fmt.Println("Calculating risk score...")
 	riskScore := teeService.CalculateRiskScore(geneData)
 	fmt.Printf("Risk score calculated: %d\n", riskScore)
 
 	// Step 8: Upload the gene data to the blockchain for secure storage
+	fmt.Println("\nStep 8")
 	fmt.Println("Uploading gene data to blockchain...")
 	txHash, err := controllerService.UploadData(fileID)
 	if err != nil {
@@ -178,6 +186,7 @@ func main() {
 	fmt.Printf("Gene data uploaded at txHash: %s\n", txHash.Hex())
 
 	// Step 9: Listen for the UploadData event to get the sessionID
+	fmt.Println("\nStep 9")
 	fmt.Println("Listening for UploadData event to get sessionID...")
 	sessionID, err := controllerEventListener.ListenForUploadDataEvents(fileID)
 	if err != nil {
@@ -186,7 +195,7 @@ func main() {
 	}
 	fmt.Printf("Received sessionID: %s\n", sessionID)
 
-	// Confirm the blockchain transaction, mint an NFT, and reward PCSP tokens
+	// Step 9.1: Confirm the blockchain transaction, mint an NFT, and reward PCSP tokens
 	fmt.Println("Confirming transaction on blockchain...")
 	err = controllerService.Confirm(fileID, fmt.Sprintf("%x", hash), fmt.Sprintf("%x", signature), sessionID, uint8(riskScore))
 	if err != nil {
@@ -195,7 +204,7 @@ func main() {
 	}
 	fmt.Println("Transaction confirmed, NFT minted, and PCSP tokens rewarded.")
 
-	// Step 10: Retrieve the user's PCSP balance from the blockchain
+	// Step 9.2: Retrieve the user's PCSP balance from the blockchain
 	userPCSPBalance, err := pcspService.GetBalance(common.HexToAddress(userETHAddress))
 	if err != nil {
 		fmt.Println("Error retrieving PCSP balance:", err)
@@ -203,10 +212,11 @@ func main() {
 	}
 	fmt.Printf("User's PCSP Balance: %d\n", userPCSPBalance)
 
-	// Step 11: Retrieve and decrypt the original gene data using the user's private key
+	// Step 10: Retrieve and decrypt the original gene data using the user's private key
+	fmt.Println("\nStep 10")
 	fmt.Println("Retrieving and decrypting original gene data...")
 
-	// Step 12: Verify the gene data signature again before decryption
+	// Step 10.1: Verify the gene data signature again before decryption
 	fmt.Println("Verifying gene data signature...")
 	isSignatureValid, err = geneDataStorageService.VerifyGeneDataSignature(fileID, userPubkeyBytes)
 	if err != nil {
@@ -220,7 +230,7 @@ func main() {
 		return
 	}
 
-	// Step 13: Retrieve the encrypted gene data from storage using the fileID
+	// Step 10.2: Retrieve the encrypted gene data from storage using the fileID
 	retrievedEncryptedData, err := geneDataStorageService.RetrieveGeneData(fileID)
 	if err != nil {
 		fmt.Println("Error retrieving gene data:", err)
@@ -228,7 +238,7 @@ func main() {
 	}
 	fmt.Println("Encrypted gene data retrieved successfully.")
 
-	// Step 14: Decrypt the gene data using the user's private key
+	// Step 10.3: Decrypt the gene data using the user's private key
 	decryptedGeneData, err := decryptGeneData(ecdsaPrivateKey, retrievedEncryptedData)
 	if err != nil {
 		fmt.Println("Error decrypting gene data:", err)
