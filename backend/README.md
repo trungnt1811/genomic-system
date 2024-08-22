@@ -15,6 +15,14 @@ This will execute the end-user flow as defined in the cmd/main.go file, demonstr
 9. Transaction Confirmation: The transaction is confirmed, minting NFTs and rewarding tokens.
 10. Data Retrieval: The user retrieves and decrypts the original gene data.
 
+## Configuration
+```bash
+cd backend
+cp .env.example .env
+nano .env
+```
+Then replace `your_private_key` with your actual private key.
+
 ## How to Run
 
 To build and run the project, use the following commands:
@@ -22,3 +30,4 @@ To build and run the project, use the following commands:
 ```bash
 make build
 ./genomic-be
+```
