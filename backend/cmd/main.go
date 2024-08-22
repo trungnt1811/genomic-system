@@ -59,10 +59,17 @@ func main() {
 	geneDataStorageService := storage.NewGeneDataStorageService()
 	teeService := tee.NewTEEService()
 
-	// Initialize Ethereum client
-	client, err := ethclient.Dial("https://sepolia.optimism.io")
+	// Initialize Optimism rpc client
+	client, err := ethclient.Dial("https://optimism-sepolia.drpc.org")
 	if err != nil {
-		fmt.Println("Error connecting to Ethereum client:", err)
+		fmt.Println("Error connecting to Ethereum rpc client:", err)
+		return
+	}
+
+	// Initialize Optimism ws client
+	wsClient, err := ethclient.Dial("wss://optimism-sepolia.drpc.org")
+	if err != nil {
+		fmt.Println("Error connecting to Ethereum ws client:", err)
 		return
 	}
 
@@ -91,6 +98,13 @@ func main() {
 	pcspService, err := blockchain.NewPCSPService(client, auth, pcspAddress)
 	if err != nil {
 		fmt.Println("Error initializing PCSP service:", err)
+		return
+	}
+
+	// Initialize Controller event listener
+	controllerEventListener, err := blockchain.NewControllerEventListener(wsClient, auth)
+	if err != nil {
+		fmt.Println("Error initializing controller event listener:", err)
 		return
 	}
 
@@ -165,7 +179,7 @@ func main() {
 
 	// Step 9: Listen for the UploadData event to get the sessionID
 	fmt.Println("Listening for UploadData event to get sessionID...")
-	sessionID, err := controllerService.ListenForUploadDataEvents(fileID)
+	sessionID, err := controllerEventListener.ListenForUploadDataEvents(fileID)
 	if err != nil {
 		fmt.Println("Error listening for UploadData event:", err)
 		return
