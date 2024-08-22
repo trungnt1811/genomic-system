@@ -59,7 +59,6 @@ func (s *ControllerEventListener) ListenForUploadDataEvents(fileID string) (*big
 	// Create a filter query for the contract address and UploadData event
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{common.HexToAddress(controllerAddress)},
-		Topics:    [][]common.Hash{{s.eventABI.Events["UploadData"].ID}},
 		FromBlock: fromBlock,
 	}
 
