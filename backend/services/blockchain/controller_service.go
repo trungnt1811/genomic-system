@@ -3,7 +3,6 @@ package blockchain
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"strings"
 
@@ -29,16 +28,16 @@ type ControllerService struct {
 }
 
 // NewControllerService initializes a new ControllerService with the given client, authentication options, and contract address.
-func NewControllerService(client *ethclient.Client, auth *bind.TransactOpts, address common.Address) *ControllerService {
+func NewControllerService(client *ethclient.Client, auth *bind.TransactOpts, address common.Address) (*ControllerService, error) {
 	controller, err := contracts.NewController(address, client)
 	if err != nil {
-		log.Fatalf("Failed to instantiate Controller contract: %v", err)
+		return nil, fmt.Errorf("failed to instantiate Controller contract: %w", err)
 	}
 
 	// Parse the ABI for the UploadData event
 	eventABI, err := abi.JSON(strings.NewReader(uploadDataEventABI))
 	if err != nil {
-		log.Fatalf("Failed to parse ABI: %v", err)
+		return nil, fmt.Errorf("failed to parse ABI: %w", err)
 	}
 
 	return &ControllerService{
@@ -46,30 +45,28 @@ func NewControllerService(client *ethclient.Client, auth *bind.TransactOpts, add
 		auth:       auth,
 		controller: controller,
 		eventABI:   eventABI,
-	}
+	}, nil
 }
 
 // UploadData uploads data to the contract and returns the transaction hash for tracking.
-func (s *ControllerService) UploadData(docId string) common.Hash {
+func (s *ControllerService) UploadData(docId string) (common.Hash, error) {
 	// Send the transaction to upload data
 	tx, err := s.controller.UploadData(s.auth, docId)
 	if err != nil {
-		log.Fatalf("Failed to upload data: %v", err)
+		return common.Hash{}, fmt.Errorf("failed to upload data: %w", err)
 	}
 
 	// Wait for the transaction receipt to ensure it's processed
 	_, err = bind.WaitMined(context.Background(), s.client, tx)
 	if err != nil {
-		log.Fatalf("Failed to mine transaction: %v", err)
+		return common.Hash{}, fmt.Errorf("failed to mine transaction: %w", err)
 	}
 
 	// Log and return the transaction hash
-	log.Printf("Upload data transaction sent: %s\n", tx.Hash().Hex())
-	return tx.Hash()
+	return tx.Hash(), nil
 }
 
 // Confirm confirms the uploaded data and logs the transaction hash.
-// It returns an error if the transaction fails or if mining the transaction fails.
 func (s *ControllerService) Confirm(docId, contentHash, proof string, sessionId *big.Int, riskScore uint8) error {
 	// Send the transaction to confirm data
 	tx, err := s.controller.Confirm(s.auth, docId, contentHash, proof, sessionId, big.NewInt(int64(riskScore)))
@@ -84,13 +81,12 @@ func (s *ControllerService) Confirm(docId, contentHash, proof string, sessionId 
 	}
 
 	// Log the transaction hash
-	log.Printf("Confirm transaction sent: %s\n", tx.Hash().Hex())
 	return nil
 }
 
-// ListenForUploadDataEvents listens for UploadData events and processes them.
-func (s *ControllerService) ListenForUploadDataEvents() {
-	// Create a filter query
+// ListenForUploadDataEvents listens for the UploadData event and returns the sessionId if the fileID matches.
+func (s *ControllerService) ListenForUploadDataEvents(fileID string) (*big.Int, error) {
+	// Create a filter query for the contract address and UploadData event
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{common.HexToAddress(controllerAddress)},
 		Topics:    [][]common.Hash{{s.eventABI.Events["UploadData"].ID}},
@@ -100,37 +96,32 @@ func (s *ControllerService) ListenForUploadDataEvents() {
 	logs := make(chan types.Log)
 	sub, err := s.client.SubscribeFilterLogs(context.Background(), query, logs)
 	if err != nil {
-		log.Fatalf("Failed to subscribe to logs: %v", err)
+		return nil, fmt.Errorf("failed to subscribe to logs: %w", err)
 	}
+	defer sub.Unsubscribe()
 
-	log.Println("Listening for UploadData events...")
-
-	// Process logs
+	// Loop through the logs
 	for {
 		select {
 		case err := <-sub.Err():
-			log.Fatalf("Subscription error: %v", err)
+			return nil, fmt.Errorf("subscription error: %w", err)
 		case vLog := <-logs:
-			// Parse the log data
-			var docId string
-			var sessionId *big.Int
+			// Unpack the log data into the event struct
+			event := struct {
+				DocID     string
+				SessionID *big.Int
+			}{}
 
-			// Unpack the event data
-			err := s.eventABI.UnpackIntoInterface(&docId, "docId", vLog.Data)
+			err := s.eventABI.UnpackIntoInterface(&event, "UploadData", vLog.Data)
 			if err != nil {
-				log.Printf("Failed to unpack docId: %v", err)
-				continue
-			}
-			err = s.eventABI.UnpackIntoInterface(&sessionId, "sessionId", vLog.Data)
-			if err != nil {
-				log.Printf("Failed to unpack sessionId: %v", err)
-				continue
+				return nil, fmt.Errorf("failed to unpack event data: %w", err)
 			}
 
-			// Output the results
-			log.Printf("Received UploadData event:\n")
-			log.Printf("Document ID: %s\n", docId)
-			log.Printf("Session ID: %s\n", sessionId.String())
+			// Compare the docId with the provided fileID
+			if event.DocID == fileID {
+				fmt.Printf("Matching UploadData event found:\nDocument ID: %s\nSession ID: %s\n", event.DocID, event.SessionID.String())
+				return event.SessionID, nil
+			}
 		}
 	}
 }

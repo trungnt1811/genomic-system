@@ -1,16 +1,19 @@
 package main
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
 
 	"github.com/trungnt1811/blockchain-engineer-interview/backend/services/auth"
@@ -55,13 +58,46 @@ func main() {
 	authService := auth.NewAuthService()
 	geneDataStorageService := storage.NewGeneDataStorageService()
 	teeService := tee.NewTEEService()
-	blockchainService := blockchain.NewBlockchainMockService()
+
+	// Initialize Ethereum client
+	client, err := ethclient.Dial("https://sepolia.optimism.io")
+	if err != nil {
+		fmt.Println("Error connecting to Ethereum client:", err)
+		return
+	}
+
+	// Get the chain ID
+	chainID, err := client.NetworkID(context.Background())
+	if err != nil {
+		fmt.Println("Error getting chain ID:", err)
+		return
+	}
+
+	// Create a new transactor with chain ID
+	auth, err := bind.NewKeyedTransactorWithChainID(ecdsaPrivateKey, chainID)
+	if err != nil {
+		fmt.Println("Error creating keyed transactor:", err)
+		return
+	}
+
+	// Initialize Controller and PCSP services
+	controllerAddress := common.HexToAddress("0x8A8937171197A78f47d8C2eE9A3C92FD33644B63")
+	pcspAddress := common.HexToAddress("0x7bc91a89bb437fBB199fB3D1d0dc3a9D913d4f9F")
+	controllerService, err := blockchain.NewControllerService(client, auth, controllerAddress)
+	if err != nil {
+		fmt.Println("Error initializing Controller service:", err)
+		return
+	}
+	pcspService, err := blockchain.NewPCSPService(client, auth, pcspAddress)
+	if err != nil {
+		fmt.Println("Error initializing PCSP service:", err)
+		return
+	}
 
 	// Step 1: Register a new user with public key
 	fmt.Println("Registering a new user...")
 	userID := authService.RegisterUserWithPubkey(userPubkeyBytes)
 	fmt.Printf("User registered with UserID: %d and Ethereum address: %s\n", userID, userETHAddress)
-	// Note: The private key is typically stored securely by the user; the service only retains the public key.
 
 	// Step 2: Authenticate the user using their Ethereum address derived from the public key
 	isAuthenticated := authService.Authenticate(userID, userETHAddress)
@@ -120,18 +156,38 @@ func main() {
 
 	// Step 8: Upload the gene data to the blockchain for secure storage
 	fmt.Println("Uploading gene data to blockchain...")
-	sessionID := blockchainService.UploadData(fileID, userETHAddress)
-	fmt.Printf("Gene data uploaded with SessionID: %d\n", sessionID)
+	txHash, err := controllerService.UploadData(fileID)
+	if err != nil {
+		fmt.Println("Error uploading data to blockchain:", err)
+		return
+	}
+	fmt.Printf("Gene data uploaded at txHash: %s\n", txHash.Hex())
 
-	// Step 9: Confirm the blockchain transaction, mint an NFT, and reward PCSP tokens
+	// Step 9: Listen for the UploadData event to get the sessionID
+	fmt.Println("Listening for UploadData event to get sessionID...")
+	sessionID, err := controllerService.ListenForUploadDataEvents(fileID)
+	if err != nil {
+		fmt.Println("Error listening for UploadData event:", err)
+		return
+	}
+	fmt.Printf("Received sessionID: %s\n", sessionID)
+
+	// Confirm the blockchain transaction, mint an NFT, and reward PCSP tokens
 	fmt.Println("Confirming transaction on blockchain...")
-	blockchainService.Confirm(sessionID, fmt.Sprintf("%x", hash), fmt.Sprintf("%x", signature), uint64(riskScore))
+	err = controllerService.Confirm(fileID, fmt.Sprintf("%x", hash), fmt.Sprintf("%x", signature), sessionID, uint8(riskScore))
+	if err != nil {
+		fmt.Println("Error confirming transaction on blockchain:", err)
+		return
+	}
 	fmt.Println("Transaction confirmed, NFT minted, and PCSP tokens rewarded.")
 
-	// Step 10: Retrieve the user's NFT and PCSP balance from the blockchain
-	userNFT := blockchainService.GetUserNFT(userETHAddress)
-	userPCSPBalance := blockchainService.GetUserPCSPBalance(userETHAddress)
-	fmt.Printf("User's NFT TokenID: %d, PCSP Balance: %d\n", userNFT, userPCSPBalance)
+	// Step 10: Retrieve the user's PCSP balance from the blockchain
+	userPCSPBalance, err := pcspService.GetBalance(common.HexToAddress(userETHAddress))
+	if err != nil {
+		fmt.Println("Error retrieving PCSP balance:", err)
+		return
+	}
+	fmt.Printf("User's PCSP Balance: %d\n", userPCSPBalance)
 
 	// Step 11: Retrieve and decrypt the original gene data using the user's private key
 	fmt.Println("Retrieving and decrypting original gene data...")
@@ -181,50 +237,45 @@ func pubkeyToETHAddress(publicKeyBytes []byte) (string, error) {
 }
 
 // hexToECDSAPrivateKey converts a hexadecimal string to an ECDSA private key.
-func hexToECDSAPrivateKey(privateKeyHex string) (*ecdsa.PrivateKey, error) {
-	// Decode the hex string to a byte slice
-	privateKeyBytes, err := hex.DecodeString(privateKeyHex)
+func hexToECDSAPrivateKey(hexKey string) (*ecdsa.PrivateKey, error) {
+	privateKey, err := crypto.HexToECDSA(hexKey)
 	if err != nil {
-		return nil, errors.New("failed to decode hex string: " + err.Error())
+		return nil, err
 	}
-
-	// Convert the byte slice to an ECDSA private key
-	privateKey, err := crypto.ToECDSA(privateKeyBytes)
-	if err != nil {
-		return nil, errors.New("failed to convert to ECDSA private key: " + err.Error())
-	}
-
 	return privateKey, nil
 }
 
-// decryptGeneData decrypts the encrypted gene data using the user's private key.
+// decryptGeneData decrypts the encrypted gene data using the AES-GCM algorithm.
 func decryptGeneData(privateKey *ecdsa.PrivateKey, encryptedData []byte) (string, error) {
-	// Extract the nonce and ciphertext
-	nonceSize := 12 // GCM standard nonce size
-	if len(encryptedData) < nonceSize {
-		return "", errors.New("invalid encrypted data")
+	// Derive the AES key from the private key
+	aesKey := sha256.Sum256(crypto.FromECDSA(privateKey))
+
+	// Create an AES block cipher based on the derived AES key
+	block, err := aes.NewCipher(aesKey[:])
+	if err != nil {
+		return "", err
 	}
+
+	// Ensure the block cipher is AES-GCM
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+
+	// Split the encrypted data into the nonce and the actual ciphertext
+	nonceSize := gcm.NonceSize()
+	if len(encryptedData) < nonceSize {
+		return "", errors.New("invalid encrypted data length")
+	}
+
 	nonce, ciphertext := encryptedData[:nonceSize], encryptedData[nonceSize:]
 
-	// Generate the shared secret
-	xBytes := privateKey.PublicKey.X.Bytes()
-	sharedSecret := sha256.Sum256(xBytes)
-
-	// Decrypt using AES-256-GCM
-	block, err := aes.NewCipher(sharedSecret[:])
+	// Decrypt the ciphertext using AES-GCM
+	decryptedData, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return "", err
 	}
 
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return string(plaintext), nil
+	// Return the decrypted data as a string
+	return string(decryptedData), nil
 }
