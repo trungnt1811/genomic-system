@@ -23,27 +23,15 @@ func main() {
 	teeService := tee.NewTEEService()
 	blockchainService := blockchain.NewBlockchainMockService()
 
-	// Step 1: Register a new user and generate an Ethereum key pair
-	fmt.Println("Registering a new user...")
-	userPrivateKeyHex, userID, err := authService.RegisterUser()
-	if err != nil {
-		fmt.Println("Error registering user:", err)
-		return
-	}
-
-	// Convert the user's private key from hex string to ECDSA private key format for cryptographic operations
+	// Get user private key from .env
+	userPrivateKeyHex := "" //TODO: implement later
 	ecdsaPrivateKey, err := hexToECDSAPrivateKey(userPrivateKeyHex)
 	if err != nil {
 		fmt.Println("Error converting private key hex to ECDSA:", err)
 		return
 	}
-
-	// Retrieve the user's public key bytes from the AuthService
-	userPubkeyBytes, err := authService.GetUserPubkey(userID)
-	if err != nil {
-		fmt.Printf("Error retrieving public key for user ID %d: %v\n", userID, err)
-		return
-	}
+	// Generate user pubkey from private key
+	userPubkeyBytes := crypto.FromECDSAPub(&ecdsaPrivateKey.PublicKey)
 
 	// Convert the public key bytes to an Ethereum address for identification
 	userETHAddress, err := pubkeyToETHAddress(userPubkeyBytes)
@@ -51,6 +39,10 @@ func main() {
 		fmt.Println("Error converting public key to Ethereum address:", err)
 		return
 	}
+
+	// Step 1: Register a new user with public key
+	fmt.Println("Registering a new user...")
+	userID := authService.RegisterUserWithPubkey(userPubkeyBytes)
 	fmt.Printf("User registered with UserID: %d, PrivateKey: %s, and Ethereum address: %s\n", userID, userPrivateKeyHex, userETHAddress)
 	// Note: The private key is typically stored securely by the user; the service only retains the public key.
 

@@ -1,84 +1,78 @@
 package auth_test
 
 import (
-	"encoding/hex"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 
-	service "github.com/trungnt1811/blockchain-engineer-interview/backend/services/auth"
+	"github.com/trungnt1811/blockchain-engineer-interview/backend/services/auth"
 )
 
-func TestRegisterUser(t *testing.T) {
-	authService := service.NewAuthService()
+func TestRegisterUserWithPubkey(t *testing.T) {
+	// Initialize AuthService
+	authService := auth.NewAuthService()
 
-	// Register a new user
-	privateKeyHex, userID, err := authService.RegisterUser()
-	require.NoError(t, err)
-	require.NotEmpty(t, privateKeyHex)
-	require.NotZero(t, userID)
-
-	// Decode the private key from hex
-	privateKeyBytes, err := hex.DecodeString(privateKeyHex)
-	require.NoError(t, err)
-
-	// Extract the public key from the private key
-	privateKey, err := crypto.ToECDSA(privateKeyBytes)
-	require.NoError(t, err)
-	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
-
-	// Check if the user is correctly stored in the AuthService
-	storedUser := authService.QueryUserByUserID(userID)
-	require.Equal(t, userID, storedUser.UserID)
-	require.Equal(t, publicKeyBytes, storedUser.PublicKey)
-}
-
-func TestAddExistingUser(t *testing.T) {
-	authService := service.NewAuthService()
-
-	// Generate a new key pair for the user
+	// Generate a new ECDSA key pair
 	privateKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
+	assert.NoError(t, err, "Failed to generate ECDSA key")
+
+	// Extract the public key bytes
 	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
-	userID := uint64(1)
 
-	// Add the user to the AuthService
-	err = authService.AddExistingUser(userID, publicKeyBytes)
-	require.NoError(t, err)
+	// Register the user with the public key
+	userID := authService.RegisterUserWithPubkey(publicKeyBytes)
 
-	// Check if the user is correctly stored in the AuthService
-	storedUser := authService.QueryUserByUserID(userID)
-	require.Equal(t, userID, storedUser.UserID)
-	require.Equal(t, publicKeyBytes, storedUser.PublicKey)
+	// Query the registered user and verify the public key is stored correctly
+	registeredUser := authService.QueryUserByUserID(userID)
+	assert.Equal(t, publicKeyBytes, registeredUser.PublicKey, "Public key mismatch")
 }
 
 func TestAuthenticate(t *testing.T) {
-	authService := service.NewAuthService()
+	// Initialize AuthService
+	authService := auth.NewAuthService()
 
-	// Register a new user
-	privateKeyHex, userID, err := authService.RegisterUser()
-	require.NoError(t, err)
+	// Generate a new ECDSA key pair
+	privateKey, err := crypto.GenerateKey()
+	assert.NoError(t, err, "Failed to generate ECDSA key")
 
-	// Decode the private key from hex
-	privateKeyBytes, err := hex.DecodeString(privateKeyHex)
-	require.NoError(t, err)
+	// Extract the public key bytes and Ethereum address
+	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+	ethAddress := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
 
-	// Extract the public key and Ethereum address
-	privateKey, err := crypto.ToECDSA(privateKeyBytes)
-	require.NoError(t, err)
-	publicKey := &privateKey.PublicKey
-	ethAddress := crypto.PubkeyToAddress(*publicKey).Hex()
+	// Register the user with the public key
+	userID := authService.RegisterUserWithPubkey(publicKeyBytes)
 
 	// Test successful authentication
 	isAuthenticated := authService.Authenticate(userID, ethAddress)
-	require.True(t, isAuthenticated)
+	assert.True(t, isAuthenticated, "User should be authenticated successfully")
 
-	// Test failed authentication with wrong address
-	isAuthenticated = authService.Authenticate(userID, "0x0000000000000000000000000000000000000000")
-	require.False(t, isAuthenticated)
+	// Test unsuccessful authentication with a wrong Ethereum address
+	wrongEthAddress := "0x0000000000000000000000000000000000000000"
+	isAuthenticated = authService.Authenticate(userID, wrongEthAddress)
+	assert.False(t, isAuthenticated, "Authentication should fail with a wrong Ethereum address")
+}
 
-	// Test failed authentication with non-existent user ID
-	isAuthenticated = authService.Authenticate(999, ethAddress)
-	require.False(t, isAuthenticated)
+func TestGetUserPubkey(t *testing.T) {
+	// Initialize AuthService
+	authService := auth.NewAuthService()
+
+	// Generate a new ECDSA key pair
+	privateKey, err := crypto.GenerateKey()
+	assert.NoError(t, err, "Failed to generate ECDSA key")
+
+	// Extract the public key bytes
+	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+
+	// Register the user with the public key
+	userID := authService.RegisterUserWithPubkey(publicKeyBytes)
+
+	// Retrieve the public key for the registered user
+	retrievedPubkey, err := authService.GetUserPubkey(userID)
+	assert.NoError(t, err, "Failed to get user public key")
+	assert.Equal(t, publicKeyBytes, retrievedPubkey, "Public key mismatch")
+
+	// Attempt to retrieve the public key for a non-existent user
+	_, err = authService.GetUserPubkey(9999)
+	assert.Error(t, err, "Expected error for non-existent user")
 }

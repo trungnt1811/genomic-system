@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
+
 	service "github.com/trungnt1811/blockchain-engineer-interview/backend/services/tee"
 )
 
