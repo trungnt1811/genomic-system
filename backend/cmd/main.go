@@ -60,16 +60,9 @@ func main() {
 	teeService := tee.NewTEEService()
 
 	// Initialize Optimism rpc client
-	client, err := ethclient.Dial("https://optimism-sepolia.drpc.org")
+	client, err := ethclient.Dial("https://sepolia.optimism.io")
 	if err != nil {
 		fmt.Println("Error connecting to Ethereum rpc client:", err)
-		return
-	}
-
-	// Initialize Optimism ws client
-	wsClient, err := ethclient.Dial("wss://optimism-sepolia.drpc.org")
-	if err != nil {
-		fmt.Println("Error connecting to Ethereum ws client:", err)
 		return
 	}
 
@@ -102,7 +95,7 @@ func main() {
 	}
 
 	// Initialize Controller event listener
-	controllerEventListener, err := blockchain.NewControllerEventListener(wsClient, auth)
+	controllerEventListener, err := blockchain.NewControllerEventListener(client, auth)
 	if err != nil {
 		fmt.Println("Error initializing controller event listener:", err)
 		return

@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -40,42 +39,51 @@ func NewControllerEventListener(client *ethclient.Client, auth *bind.TransactOpt
 
 // ListenForUploadDataEvents listens for the UploadData event and returns the sessionId if the fileID matches.
 func (s *ControllerEventListener) ListenForUploadDataEvents(fileID string) (*big.Int, error) {
+	// Get the latest block number
+	header, err := s.client.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the latest block: %w", err)
+	}
+	latestBlock := header.Number
+
+	// Ensure the block range is valid
+	startBlock := new(big.Int).Sub(latestBlock, big.NewInt(5))
+	if startBlock.Sign() < 0 {
+		startBlock = big.NewInt(0)
+	}
+
 	// Create a filter query for the contract address and UploadData event
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{common.HexToAddress(controllerAddress)},
 		Topics:    [][]common.Hash{{s.eventABI.Events["UploadData"].ID}},
+		FromBlock: startBlock, // Start from the latest block - 5
 	}
 
-	// Create a channel to receive logs
-	logs := make(chan types.Log)
-	sub, err := s.client.SubscribeFilterLogs(context.Background(), query, logs)
+	// Poll for logs
+	logs, err := s.client.FilterLogs(context.Background(), query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to subscribe to logs: %w", err)
+		return nil, fmt.Errorf("failed to filter logs: %w", err)
 	}
-	defer sub.Unsubscribe()
 
 	// Loop through the logs
-	for {
-		select {
-		case err := <-sub.Err():
-			return nil, fmt.Errorf("subscription error: %w", err)
-		case vLog := <-logs:
-			// Unpack the log data into the event struct
-			event := struct {
-				DocID     string
-				SessionID *big.Int
-			}{}
+	for _, vLog := range logs {
+		// Unpack the log data into the event struct
+		event := struct {
+			DocID     string
+			SessionID *big.Int
+		}{}
 
-			err := s.eventABI.UnpackIntoInterface(&event, "UploadData", vLog.Data)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unpack event data: %w", err)
-			}
+		err := s.eventABI.UnpackIntoInterface(&event, "UploadData", vLog.Data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unpack event data: %w", err)
+		}
 
-			// Compare the docId with the provided fileID
-			if event.DocID == fileID {
-				fmt.Printf("Matching UploadData event found:\nDocument ID: %s\nSession ID: %s\n", event.DocID, event.SessionID.String())
-				return event.SessionID, nil
-			}
+		// Compare the docId with the provided fileID
+		if event.DocID == fileID {
+			fmt.Printf("Matching UploadData event found:\nDocument ID: %s\nSession ID: %s\n", event.DocID, event.SessionID.String())
+			return event.SessionID, nil
 		}
 	}
+
+	return nil, fmt.Errorf("no matching event found")
 }
