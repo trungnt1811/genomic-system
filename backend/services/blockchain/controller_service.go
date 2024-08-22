@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/big"
 
@@ -52,19 +53,21 @@ func (s *ControllerService) UploadData(docId string) common.Hash {
 }
 
 // Confirm confirms the uploaded data and logs the transaction hash.
-func (s *ControllerService) Confirm(docId, contentHash, proof string, sessionId *big.Int, riskScore uint8) {
+// It returns an error if the transaction fails or if mining the transaction fails.
+func (s *ControllerService) Confirm(docId, contentHash, proof string, sessionId *big.Int, riskScore uint8) error {
 	// Send the transaction to confirm data
 	tx, err := s.controller.Confirm(s.auth, docId, contentHash, proof, sessionId, big.NewInt(int64(riskScore)))
 	if err != nil {
-		log.Fatalf("Failed to confirm session: %v", err)
+		return fmt.Errorf("failed to confirm session: %w", err)
 	}
 
 	// Wait for the transaction receipt to ensure it's processed
 	_, err = bind.WaitMined(context.Background(), s.client, tx)
 	if err != nil {
-		log.Fatalf("Failed to mine transaction: %v", err)
+		return fmt.Errorf("failed to mine transaction: %w", err)
 	}
 
 	// Log the transaction hash
 	log.Printf("Confirm transaction sent: %s\n", tx.Hash().Hex())
+	return nil
 }
