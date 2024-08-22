@@ -177,6 +177,32 @@ func main() {
 	}
 	fmt.Printf("Gene data uploaded at txHash: %s\n", txHash.Hex())
 
+	// Step 9: Listen for the UploadData event to get the sessionID
+	fmt.Println("Listening for UploadData event to get sessionID...")
+	sessionID, err := controllerEventListener.ListenForUploadDataEvents(fileID)
+	if err != nil {
+		fmt.Println("Error listening for UploadData event:", err)
+		return
+	}
+	fmt.Printf("Received sessionID: %s\n", sessionID)
+
+	// Confirm the blockchain transaction, mint an NFT, and reward PCSP tokens
+	fmt.Println("Confirming transaction on blockchain...")
+	err = controllerService.Confirm(fileID, fmt.Sprintf("%x", hash), fmt.Sprintf("%x", signature), sessionID, uint8(riskScore))
+	if err != nil {
+		fmt.Println("Error confirming transaction on blockchain:", err)
+		return
+	}
+	fmt.Println("Transaction confirmed, NFT minted, and PCSP tokens rewarded.")
+
+	// Step 10: Retrieve the user's PCSP balance from the blockchain
+	userPCSPBalance, err := pcspService.GetBalance(common.HexToAddress(userETHAddress))
+	if err != nil {
+		fmt.Println("Error retrieving PCSP balance:", err)
+		return
+	}
+	fmt.Printf("User's PCSP Balance: %d\n", userPCSPBalance)
+
 	// Step 11: Retrieve and decrypt the original gene data using the user's private key
 	fmt.Println("Retrieving and decrypting original gene data...")
 
@@ -209,32 +235,6 @@ func main() {
 		return
 	}
 	fmt.Printf("Original gene data retrieved and decrypted successfully: %s\n", decryptedGeneData)
-
-	// Step 9: Listen for the UploadData event to get the sessionID
-	fmt.Println("Listening for UploadData event to get sessionID...")
-	sessionID, err := controllerEventListener.ListenForUploadDataEvents(fileID)
-	if err != nil {
-		fmt.Println("Error listening for UploadData event:", err)
-		return
-	}
-	fmt.Printf("Received sessionID: %s\n", sessionID)
-
-	// Confirm the blockchain transaction, mint an NFT, and reward PCSP tokens
-	fmt.Println("Confirming transaction on blockchain...")
-	err = controllerService.Confirm(fileID, fmt.Sprintf("%x", hash), fmt.Sprintf("%x", signature), sessionID, uint8(riskScore))
-	if err != nil {
-		fmt.Println("Error confirming transaction on blockchain:", err)
-		return
-	}
-	fmt.Println("Transaction confirmed, NFT minted, and PCSP tokens rewarded.")
-
-	// Step 10: Retrieve the user's PCSP balance from the blockchain
-	userPCSPBalance, err := pcspService.GetBalance(common.HexToAddress(userETHAddress))
-	if err != nil {
-		fmt.Println("Error retrieving PCSP balance:", err)
-		return
-	}
-	fmt.Printf("User's PCSP Balance: %d\n", userPCSPBalance)
 }
 
 // pubkeyToETHAddress converts a public key byte slice to an Ethereum address.
