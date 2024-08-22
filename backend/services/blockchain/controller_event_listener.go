@@ -70,23 +70,27 @@ func (s *ControllerEventListener) ListenForUploadDataEvents(fileID string) (*big
 
 	// Loop through the logs
 	for _, vLog := range logs {
-		// Unpack the log data into the event struct
-		event := struct {
-			DocID     string
-			SessionID *big.Int
-		}{}
-
 		// Unpack the non-indexed parameters
-		err := s.eventABI.UnpackIntoInterface(&event, "UploadData", vLog.Data)
+		events, err := s.eventABI.Unpack("UploadData", vLog.Data)
 		if err != nil {
 			fmt.Printf("Error unpacking event data: %v\n", err)
 			continue
 		}
+		if len(events) == 2 {
+			docID, ok1 := events[0].(string)
+			sessionID, ok2 := events[1].(*big.Int)
 
-		// Compare the docId with the provided fileID
-		if event.DocID == fileID {
-			fmt.Printf("Matching UploadData event found:\nDocument ID: %s\nSession ID: %s\n", event.DocID, event.SessionID.String())
-			return event.SessionID, nil
+			if ok1 && ok2 {
+				fmt.Printf("Document ID: %s, Session ID: %s\n", docID, sessionID.String())
+			} else {
+				fmt.Println("Failed to cast event data to expected types")
+			}
+
+			// Compare the docId with the provided fileID
+			if docID == fileID {
+				fmt.Printf("Matching UploadData event found:\nDocument ID: %s\nSession ID: %s\n", docID, sessionID.String())
+				return sessionID, nil
+			}
 		}
 	}
 
