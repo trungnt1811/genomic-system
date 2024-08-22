@@ -5,10 +5,13 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -115,7 +118,11 @@ func main() {
 	fmt.Println("User authenticated successfully with Ethereum address:", userETHAddress)
 
 	// Step 3: Encrypt gene data using the user's public key via the TEE service
-	geneData := "AGTCAGTCAGTC..." // Example gene data to be encrypted
+	geneData, err := randomStringWithRandomLength(10, 50) // Example gene data to be encrypted
+	if err != nil {
+		fmt.Println("Error creating random gene data:", err)
+		return
+	}
 	fmt.Printf("Original gene data: %s\n", geneData)
 	fmt.Println("Encrypting gene data...")
 	encryptedData, err := teeService.EncryptGeneData(userPubkeyBytes, geneData)
@@ -282,4 +289,26 @@ func decryptGeneData(privateKey *ecdsa.PrivateKey, encryptedData []byte) (string
 	}
 
 	return string(plaintext), nil
+}
+
+func randomStringWithRandomLength(minLength, maxLength int) (string, error) {
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	// Generate a random length within the given range
+	length, err := rand.Int(rand.Reader, big.NewInt(int64(maxLength-minLength+1)))
+	if err != nil {
+		return "", err
+	}
+	length = length.Add(length, big.NewInt(int64(minLength)))
+
+	// Build the random string
+	var sb strings.Builder
+	for i := 0; i < int(length.Int64()); i++ {
+		charIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", err
+		}
+		sb.WriteByte(charset[charIndex.Int64()])
+	}
+
+	return sb.String(), nil
 }
