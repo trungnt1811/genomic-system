@@ -43,31 +43,3 @@ func TestEncryptGeneData_InvalidPublicKey(t *testing.T) {
 	_, err := teeService.EncryptGeneData(invalidPublicKey, geneData)
 	require.Error(t, err)
 }
-
-func TestSignEncryptedGeneData(t *testing.T) {
-	// Generate a new private key for testing.
-	privateKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	require.NotNil(t, privateKey)
-
-	// Initialize the TEEService.
-	service := service.NewTEEService()
-
-	// Define the test data.
-	encryptedData := []byte("sample encrypted gene data")
-
-	// Sign the encrypted data.
-	hash, signature, err := service.SignEncryptedGeneData(privateKey, encryptedData)
-	require.NoError(t, err)
-	require.NotNil(t, hash)
-	require.NotNil(t, signature)
-
-	// Verify that the hash matches the expected Keccak256 hash.
-	expectedHash := crypto.Keccak256Hash(encryptedData).Bytes()
-	require.Equal(t, expectedHash, hash)
-
-	// Verify the signature using the public key.
-	publicKey := &privateKey.PublicKey
-	valid := crypto.VerifySignature(crypto.CompressPubkey(publicKey), hash, signature[:len(signature)-1])
-	require.True(t, valid)
-}

@@ -78,18 +78,3 @@ func encryptAES(key, plaintext []byte) ([]byte, error) {
 	ciphertext := aesGCM.Seal(nil, nonce, plaintext, nil)
 	return append(nonce, ciphertext...), nil
 }
-
-// SignEncryptedGeneData generates a hash of the encrypted data and then signs it using the provided private key.
-// It returns the hash and the corresponding digital signature.
-func (s *TEEService) SignEncryptedGeneData(privateKey *ecdsa.PrivateKey, encryptedData []byte) ([]byte, []byte, error) {
-	// Generate the hash of the encrypted data
-	hashData := crypto.Keccak256Hash(encryptedData).Bytes()
-
-	// Sign the hash using the provided private key
-	signature, err := crypto.Sign(hashData, privateKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return hashData, signature, nil
-}

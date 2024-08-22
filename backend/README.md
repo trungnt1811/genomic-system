@@ -7,7 +7,7 @@ This will execute the end-user flow as defined in the cmd/main.go file, demonstr
 1. User Registration: A new user is registered.
 2. User Authentication: The user is authenticated using their Ethereum address.
 3. Gene Data Encryption: The user's public key encrypts gene data using the Trusted Execution Environment (TEE) service.
-4. Gene Data Signing: The user's private key signs the encrypted gene data using the Trusted Execution Environment (TEE) service.
+4. Gene Data Signing: The user's private key signs the encrypted gene data.
 5. Data Storage: The encrypted data, along with its signature and hash, is securely stored.
 6. Signature Verification: The stored signature is verified to ensure the integrity of the data.
 7. Risk Score Calculation: A risk score is calculated based on the gene data.

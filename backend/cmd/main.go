@@ -135,10 +135,10 @@ func main() {
 	}
 	fmt.Println("Gene data encrypted successfully.")
 
-	// Step 4: Sign the encrypted gene data using the user's private key via the TEE service
+	// Step 4: Sign the encrypted gene data using the user's private key
 	fmt.Println("\nStep 4")
 	fmt.Println("Signing encrypted gene data...")
-	hash, signature, err := teeService.SignEncryptedGeneData(ecdsaPrivateKey, encryptedData)
+	hash, signature, err := signEncryptedGeneData(ecdsaPrivateKey, encryptedData)
 	if err != nil {
 		fmt.Println("Error signing gene data:", err)
 		return
@@ -321,4 +321,19 @@ func randomStringWithRandomLength(minLength, maxLength int) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+// signEncryptedGeneData generates a hash of the encrypted data and then signs it using the provided private key.
+// It returns the hash and the corresponding digital signature.
+func signEncryptedGeneData(privateKey *ecdsa.PrivateKey, encryptedData []byte) ([]byte, []byte, error) {
+	// Generate the hash of the encrypted data
+	hashData := crypto.Keccak256Hash(encryptedData).Bytes()
+
+	// Sign the hash using the provided private key
+	signature, err := crypto.Sign(hashData, privateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return hashData, signature, nil
 }
