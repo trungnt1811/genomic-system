@@ -17,7 +17,6 @@ This will execute the end-user flow as defined in the cmd/main.go file, demonstr
 
 ## Configuration
 ```bash
-cd backend
 cp .env.example .env
 nano .env
 ```
